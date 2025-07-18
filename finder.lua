@@ -1,6 +1,17 @@
 -- Carga la UI de Kavo
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
-local Window = Library.CreateLib("Brainrot Finder", "BloodTheme")
+
+-- Tema azul personalizado
+local BlueTheme = {
+    Main = Color3.fromRGB(0, 102, 204),          -- Fondo principal azul
+    Glow = Color3.fromRGB(0, 82, 164),
+    Accent = Color3.fromRGB(10, 132, 255),
+    LightContrast = Color3.fromRGB(25, 133, 246),
+    DarkContrast = Color3.fromRGB(0, 63, 153),
+    TextColor = Color3.fromRGB(255, 255, 255),
+}
+
+local Window = Library.CreateLib("Brainrot Finder", BlueTheme)
 
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
