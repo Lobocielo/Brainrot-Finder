@@ -60,7 +60,7 @@ local encontrados = obtenerRemoteEvents()
 
 for _, remoto in ipairs(encontrados) do
     RemoteSection:NewButton(remoto.ruta, "Enviar info al Discord", function()
-        enviarWebhook("📦 RemoteEvent Detectado", "**Ruta completa:** " .. remoto.ruta .. "")
+        enviarWebhook("📦 RemoteEvent Detectado", "**Ruta completa:** `" .. remoto.ruta .. "`")
     end)
 end
 
