@@ -1,10 +1,16 @@
-local WEBHOOK = "https://discord.com/api/webhooks/1395923548044005406/XtdiHIMtc5_BLFHBkKnTRt1GiAxPUqR_v8B-_CB13cffQ4Kgheg_Q74SXXHWu8zRUsJl" -- Tu nuevo webhook
+-- Carga Kavo UI
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+
+local Window = Library.CreateLib("ZENIHT FINDER", "BloodTheme")
+local Tab = Window:NewTab("Main")
+local Section = Tab:NewSection("Funciones")
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 
--- Función para enviar request (compatible con Synapse y otros exploits)
+local WEBHOOK = "https://discord.com/api/webhooks/1395923548044005406/XtdiHIMtc5_BLFHBkKnTRt1GiAxPUqR_v8B-_CB13cffQ4Kgheg_Q74SXXHWu8zRUsJl" -- Pone tu webhook aquí
+
 local sendRequest = syn and syn.request or http_request or request
 
 -- Obtener top jugadores con más cash
@@ -21,10 +27,13 @@ local function GetTopPlayers()
     return list
 end
 
--- Enviar mensaje al webhook con top 5 jugadores
+-- Enviar webhook con top 5 jugadores
 local function SendTopWebhook()
     local top = GetTopPlayers()
-    if #top == 0 then return end
+    if #top == 0 then
+        warn("No hay jugadores con cash para enviar al webhook.")
+        return
+    end
 
     local lines = {
         "📊 ZENIHT FINDER | Jugadores más ricos detectados",
@@ -50,12 +59,14 @@ local function SendTopWebhook()
         })
     end)
 
-    if not success then
-        warn("🚫 Webhook bloqueado o falló: ", err)
+    if success then
+        print("[ZENIHT] Webhook enviado correctamente.")
+    else
+        warn("[ZENIHT] Error al enviar webhook:", err)
     end
 end
 
--- Función para teletransportar a otro servidor aleatorio (server hop)
+-- Función para hacer server hop a otro servidor público aleatorio
 local function TeleportToAnotherServer()
     local placeId = game.PlaceId
     local servers = {}
@@ -66,9 +77,9 @@ local function TeleportToAnotherServer()
         if cursor then
             url = url .. "&cursor=" .. cursor
         end
-        local response = syn and syn.request or http_request or request
+        local responseFunc = syn and syn.request or http_request or request
         local success, result = pcall(function()
-            return response({
+            return responseFunc({
                 Url = url,
                 Method = "GET",
                 Headers = {
@@ -78,13 +89,11 @@ local function TeleportToAnotherServer()
         end)
 
         if success and result and result.StatusCode == 200 then
-            local data = HttpService:JSONDecode(result.Body)
-            return data
+            return HttpService:JSONDecode(result.Body)
         end
         return nil
     end
 
-    -- Obtener servidores públicos (hasta 500)
     repeat
         local data = getServers(pageCursor)
         if not data then break end
@@ -99,23 +108,20 @@ local function TeleportToAnotherServer()
     until not pageCursor or #servers >= 500
 
     if #servers == 0 then
-        warn("No se encontraron servidores alternativos.")
+        warn("[ZENIHT] No se encontraron servidores alternativos para teleportar.")
         return
     end
 
-    -- Elegir un servidor random y teletransportar
     local randomServer = servers[math.random(1, #servers)]
-    print("Teleportando a servidor: " .. randomServer)
+    print("[ZENIHT] Teleportando a servidor: " .. randomServer)
     TeleportService:TeleportToPlaceInstance(placeId, randomServer, Players.LocalPlayer)
 end
 
--- Espera que carguen los jugadores para enviar el webhook
-task.spawn(function()
-    repeat wait(1) until #Players:GetPlayers() > 0
-    wait(5)  -- espera extra para que carguen datos
+-- UI Buttons
+Section:NewButton("Enviar Top 5 al Webhook", "Envía los jugadores más ricos detectados al webhook", function()
     SendTopWebhook()
 end)
 
--- Ejemplo de uso: llamar a TeleportToAnotherServer() para hacer server hop
--- Descomenta esta línea para teletransportarte automáticamente a otro servidor
--- TeleportToAnotherServer()
+Section:NewButton("Server Hop (Teleport a otro servidor)", "Teletransportarse a otro servidor aleatorio", function()
+    TeleportToAnotherServer()
+end)
