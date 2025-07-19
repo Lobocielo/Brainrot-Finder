@@ -56,13 +56,13 @@ local function SendTopWebhook()
         local p = top[i]
         table.insert(fields, {
             name = string.format("%d. %s (%s)", i, p.Display, p.Name),
-            value = string.format("💰 **Cash:** %s\n🆔 **ID:** %d", formatNumber(p.Cash), p.ID),
+            value = string.format("\ud83d\udcb0 **Cash:** %s\n\ud83c\udd94 **ID:** %d", formatNumber(p.Cash), p.ID),
             inline = false
         })
     end
 
     local embed = {
-        title = "📊 ZENIHT FINDER | Top 5 Jugadores Más Ricos",
+        title = "\ud83d\udcca ZENIHT FINDER | Top 5 Jugadores Más Ricos",
         color = 0x1E90FF, -- Azul DodgerBlue
         fields = fields,
         footer = {
