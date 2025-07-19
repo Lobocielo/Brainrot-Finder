@@ -1,6 +1,6 @@
 -- Carga Kavo UI con tema azul (Ocean)
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
-local Window = Library.CreateLib("ZENIHT FINDER", "Ocean") -- Ocean es tema azul
+local Window = Library.CreateLib("ZENIHT FINDER PARA POBRES", "Ocean") -- Tema azul
 local Tab = Window:NewTab("Main")
 local Section = Tab:NewSection("Funciones")
 
@@ -11,22 +11,33 @@ local TeleportService = game:GetService("TeleportService")
 local WEBHOOK = "https://discord.com/api/webhooks/1395923548044005406/XtdiHIMtc5_BLFHBkKnTRt1GiAxPUqR_v8B-_CB13cffQ4Kgheg_Q74SXXHWu8zRUsJl" -- Pone tu webhook aquí
 
 local sendRequest = syn and syn.request or http_request or request
-
 if not sendRequest then
-    warn("[ZENIHT] Error: sendRequest no está definido. ¿Estás usando un executor compatible?")
+    warn("[ZENIHT] sendRequest no está disponible. Usa un executor compatible.")
+end
+
+-- Función para formatear números con coma como separador de miles
+local function formatNumber(n)
+    local str = tostring(n)
+    local formatted = str:reverse():gsub("(%d%d%d)","%1,"):reverse()
+    if formatted:sub(1,1) == "," then
+        formatted = formatted:sub(2)
+    end
+    return formatted
 end
 
 local function GetTopPlayers()
-    print("[ZENIHT] Obteniendo lista de jugadores con cash...")
     local list = {}
     for _, p in ipairs(Players:GetPlayers()) do
         local stats = p:FindFirstChild("leaderstats")
         local cash = stats and stats:FindFirstChild("Cash")
         if cash then
-            table.insert(list, {Name = p.Name, Display = p.DisplayName, Cash = cash.Value, ID = p.UserId})
+            table.insert(list, {
+                Name = p.Name,
+                Display = p.DisplayName,
+                Cash = cash.Value,
+                ID = p.UserId
+            })
             print(string.format("[ZENIHT] Jugador: %s, Cash: %d", p.Name, cash.Value))
-        else
-            print(string.format("[ZENIHT] Jugador %s no tiene Cash", p.Name))
         end
     end
     table.sort(list, function(a, b) return a.Cash > b.Cash end)
@@ -34,7 +45,6 @@ local function GetTopPlayers()
 end
 
 local function SendTopWebhook()
-    print("[ZENIHT] Preparando para enviar webhook...")
     local top = GetTopPlayers()
     if #top == 0 then
         warn("[ZENIHT] No hay jugadores con cash para enviar al webhook.")
@@ -46,22 +56,24 @@ local function SendTopWebhook()
         local p = top[i]
         table.insert(fields, {
             name = string.format("%d. %s (%s)", i, p.Display, p.Name),
-            value = string.format("💰 Cash: %d\n🆔 ID: %d", p.Cash, p.ID),
+            value = string.format("💰 **Cash:** %s\n🆔 **ID:** %d", formatNumber(p.Cash), p.ID),
             inline = false
         })
     end
 
     local embed = {
-        title = "📊 ZENIHT FINDER | Jugadores más ricos detectados",
-        color = 0x1E90FF,
+        title = "📊 ZENIHT FINDER | Top 5 Jugadores Más Ricos",
+        color = 0x1E90FF, -- Azul DodgerBlue
         fields = fields,
         footer = {
             text = string.format("JobId: %s | PlaceId: %d", tostring(game.JobId), game.PlaceId)
         },
-        timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+        timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ") -- ISO8601 UTC
     }
 
-    local data = {embeds = {embed}}
+    local data = {
+        embeds = {embed}
+    }
 
     local success, err = pcall(function()
         sendRequest({
@@ -103,7 +115,6 @@ local function TeleportToAnotherServer()
                 }
             })
         end)
-
         if success and result and result.StatusCode == 200 then
             return HttpService:JSONDecode(result.Body)
         else
@@ -142,10 +153,6 @@ local function TeleportToAnotherServer()
     TeleportService:TeleportToPlaceInstance(placeId, randomServer, Players.LocalPlayer)
 end
 
-Section:NewButton("Enviar Top 5 al Webhook", "Envía los jugadores más ricos detectados al webhook", function()
-    SendTopWebhook()
-end)
+Section:NewButton("Enviar Top 5 al Webhook", "Envía los jugadores más ricos detectados al webhook", SendTopWebhook)
 
-Section:NewButton("Server Hop (Teleport a otro servidor)", "Teletransportarse a otro servidor aleatorio", function()
-    TeleportToAnotherServer()
-end)
+Section:NewButton("Server Hop (Teleport a otro servidor)", "Teletransportarse a otro servidor aleatorio", TeleportToAnotherServer)
