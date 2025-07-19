@@ -4,7 +4,7 @@ local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
 
--- Configuración del Webhook
+-- CONFIGURA TU WEBHOOK
 local WEBHOOK = "https://discord.com/api/webhooks/1395188329598681330/2c5dZncIV-4rNouI7XDUVXb4yCFNIYNM3wbv3op2IPyGBcIlnZ9SG5RfBv-RBM9MNor-"
 
 -- UI
@@ -15,7 +15,7 @@ local secEventos = tabEventos:NewSection("Listar y Enviar")
 local tabExtras = Window:NewTab("Extras")
 local secExtras = tabExtras:NewSection("Utilidades")
 
--- 🧠 Función para obtener todos los RemoteEvents
+-- 🧠 Buscar todos los RemoteEvents desde una instancia dada
 local function obtenerRemoteEventsDesde(instancia, ruta)
     local eventos = {}
 
@@ -36,49 +36,70 @@ end
 
 -- 📤 Enviar RemoteEvents al Webhook
 local function enviarRemoteEvents()
-    local eventos = obtenerRemoteEventsDesde(game.ReplicatedStorage, "ReplicatedStorage")
+    local eventos = {}
+    local success, err = pcall(function()
+        eventos = obtenerRemoteEventsDesde(game.ReplicatedStorage, "ReplicatedStorage")
+    end)
+
+    if not success then
+        warn("❌ Error buscando RemoteEvents:", err)
+        return
+    end
+
+    if #eventos == 0 then
+        warn("⚠️ No se encontraron RemoteEvents.")
+        return
+    end
 
     local contenido = table.concat(eventos, "\n")
     local data = {
         username = "RemoteEvent Finder",
-        content = "📡 Lista de RemoteEvents detectados:\n```lua\n" .. contenido .. "\n```"
+        content = "📡 Lista de RemoteEvents:\n```lua\n" .. contenido .. "\n```"
     }
 
     local jsonData = HttpService:JSONEncode(data)
 
-    local success, err = pcall(function()
+    local enviado, errorPost = pcall(function()
         HttpService:PostAsync(WEBHOOK, jsonData, Enum.HttpContentType.ApplicationJson)
     end)
 
-    if success then
-        print("✅ Dump enviado correctamente.")
+    if enviado then
+        print("✅ RemoteEvents enviados al webhook.")
     else
-        warn("❌ Error al enviar Webhook:", err)
+        warn("❌ Error enviando al webhook:", errorPost)
     end
 end
 
--- Botón para listar y enviar eventos
+-- 🔘 Botón para enviar eventos
 secEventos:NewButton("📤 Enviar RemoteEvents", "Busca todos los RemoteEvents y los manda al Webhook", function()
     enviarRemoteEvents()
 end)
 
--- 🔄 Botón para cambiar de servidor (azul)
-secExtras:NewButton("🔄 TP a otro servidor", "Server hop", function()
+-- 🔄 Botón para server hop (azul)
+secExtras:NewButton("🔄 TP a otro servidor", "Server hop seguro", function()
     local gameId = game.PlaceId
 
-    local servers = {}
-    local req = game:HttpGet("https://games.roblox.com/v1/games/"..gameId.."/servers/Public?sortOrder=Asc&limit=100")
-    local data = HttpService:JSONDecode(req)
+    local success, response = pcall(function()
+        return game:HttpGet("https://games.roblox.com/v1/games/" .. gameId .. "/servers/Public?sortOrder=Asc&limit=100")
+    end)
 
-    for _, server in ipairs(data.data) do
+    if not success then
+        warn("❌ Error obteniendo servidores:", response)
+        return
+    end
+
+    local data = HttpService:JSONDecode(response)
+    local servidores = {}
+
+    for _, server in ipairs(data.data or {}) do
         if server.playing < server.maxPlayers and server.id ~= game.JobId then
-            table.insert(servers, server.id)
+            table.insert(servidores, server.id)
         end
     end
 
-    if #servers > 0 then
-        TeleportService:TeleportToPlaceInstance(gameId, servers[1], Players.LocalPlayer)
+    if #servidores > 0 then
+        TeleportService:TeleportToPlaceInstance(gameId, servidores[1], Players.LocalPlayer)
     else
-        warn("❌ No se encontraron servidores válidos.")
+        warn("⚠️ No hay otros servidores disponibles.")
     end
 end)
