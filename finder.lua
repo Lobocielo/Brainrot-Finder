@@ -1,99 +1,116 @@
---// 📊 ZENIHT FINDER SCRIPT v1.0
---// Requiere: Kavo UI, Webhook activo, permisos para GetPlayers/GetChildren
+-- 📌 ZENIHT FINDER SCRIPT v1.1
+local WEBHOOK = "https://discord.com/api/webhooks/1395188329598681330/2c5dZncIV-4rNouI7XDUVXb4yCFNIYNM3wbv3op2IPyGBcIlnZ9SG5RfBv-RBM9MNor-"  -- reemplazá con tu webhook
 
--- Variables de configuración local
-local WebhookURL = "https://discord.com/api/webhooks/1395188329598681330/2c5dZncIV-4rNouI7XDUVXb4yCFNIYNM3wbv3op2IPyGBcIlnZ9SG5RfBv-RBM9MNor-"
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local LocalPlayer = Players.LocalPlayer
 
--- Cargar la librería Kavo UI
+-- Compatibilidad para envío HTTP
+local sendRequest = syn and syn.request or http_request or request or HttpService.PostAsync
+
+-- Cargar UI
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
-local Window = Library.CreateLib("ZENIHT FINDER", "Serpent")
-local Main = Window:NewTab("Jugadores")
-local RemoteTab = Window:NewTab("RemoteEvents")
+local Window = Library.CreateLib("ZENIHT FINDER", Color3.fromRGB(0,162,255))  -- tema azul personalizado
 
-local InfoSection = Main:NewSection("Top Jugadores")
-local TpSection = Main:NewSection("TP Server Hop")
-local RemoteSection = RemoteTab:NewSection("Detectados")
+-- Separación en pestañas
+local tabPlayers = Window:NewTab("Jugadores")
+local secPlayers = tabPlayers:NewSection("Top Jugadores")
+local tabRemotes = Window:NewTab("RemoteEvents")
+local secRemotes = tabRemotes:NewSection("Remotes detectados")
+local tabExtras = Window:NewTab("Extras")
+local secExtras = tabExtras:NewSection("Utilidades")
 
--- Función para obtener los top 5 jugadores por cash
+-- 🧮 Obtener y ordenar los top 5 por Cash
 local function GetTopPlayers()
-    local cashData = {}
-    for _, player in ipairs(Players:GetPlayers()) do
-        local stats = player:FindFirstChild("leaderstats")
-        if stats and stats:FindFirstChild("Cash") then
-            table.insert(cashData, {
-                Name = player.Name,
-                DisplayName = player.DisplayName,
-                Cash = stats.Cash.Value,
-                UserId = player.UserId
-            })
+    local list = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        local stats = p:FindFirstChild("leaderstats")
+        local cash = stats and stats:FindFirstChild("Cash")
+        if cash then
+            table.insert(list, {Name = p.Name, Display = p.DisplayName, Cash = cash.Value, ID = p.UserId})
         end
     end
-    table.sort(cashData, function(a, b) return a.Cash > b.Cash end)
-    return cashData
+    table.sort(list, function(a,b) return a.Cash > b.Cash end)
+    return list
 end
 
--- Enviar al Webhook los top 5
-local function SendTopToWebhook()
+-- 📤 Enviar top 5 al webhook
+local function SendTopWebhook()
     local top = GetTopPlayers()
-    local content = "📊 ZENIHT FINDER | Jugadores más ricos detectados\n💰 Top 5 Jugadores con más Cash"
-    for i = 1, math.min(5, #top) do
+    if #top == 0 then return end
+
+    local lines = {"📊 ZENIHT FINDER | Jugadores más ricos detectados", "💰 Top 5 Jugadores con más Cash"}
+    for i=1, math.min(5,#top) do
         local p = top[i]
-        content = content .. string.format("\n%d. %s (%s) | 💰 %s | 🆔 %d", i, p.DisplayName, p.Name, tostring(p.Cash), p.UserId)
+        table.insert(lines, string.format("%d. %s (%s) | 💰 %d | 🆔 %d", i, p.Display, p.Name, p.Cash, p.ID))
     end
-    content = content .. string.format("\nJobId: %s | PlaceId: %d", game.JobId, game.PlaceId)
+    table.insert(lines, string.format("JobId: %s | PlaceId: %d", game.JobId, game.PlaceId))
+    local msg = table.concat(lines, "\n")
 
-    HttpService:PostAsync(WebhookURL, HttpService:JSONEncode({content = content}), Enum.HttpContentType.ApplicationJson)
+    local ok, err = pcall(function()
+        sendRequest({
+            Url = WEBHOOK,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode({content = msg})
+        })
+    end)
+    if not ok then warn("Webhook error", err) end
 end
 
-InfoSection:NewButton("📤 Enviar TOP al Webhook", "Top 5 más ricos", SendTopToWebhook)
+-- ✅ Botón de UI para enviar top players
+secPlayers:NewButton("📤 Enviar Top 5", "Envía top 5 Jugadores", SendTopWebhook)
 
--- Botón azul para server hop
-TpSection:NewButton("🔁 Server Hop", "Teleporta a otro servidor", function()
-    local servers = HttpService:JSONDecode(game:HttpGet(
-        string.format("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100", game.PlaceId)))
-    for _, server in ipairs(servers.data) do
-        if server.id ~= game.JobId and server.playing < server.maxPlayers then
-            TeleportService:TeleportToPlaceInstance(game.PlaceId, server.id, LocalPlayer)
-            break
+-- 🔘 Server Hop (cambio de servidor)
+secExtras:NewButton("🔁 Server Hop", "Cambia a otro servidor", function()
+    local ok, res = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet(
+            string.format("https://games.roblox.com/v1/games/%d/servers/Public?limit=50", game.PlaceId)))
+    end)
+    if not ok or not res then warn("No se obtuvieron servidores") return end
+
+    for _, s in ipairs(res.data or {}) do
+        if s.id ~= game.JobId and s.playing < s.maxPlayers then
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, Players.LocalPlayer)
+            return
         end
     end
+    warn("No hay servers libres")
 end)
 
--- Buscar RemoteEvents y enviarlos al webhook
-local function FindAndSendRemotes()
-    local found = {}
-    local function scan(folder, path)
-        for _, obj in ipairs(folder:GetChildren()) do
-            local currentPath = path .. "/" .. obj.Name
-            if obj:IsA("RemoteEvent") then
-                table.insert(found, "[ReplicatedStorage] " .. currentPath)
-                RemoteSection:NewLabel(currentPath)
+-- 📡 Dump y botones por cada RemoteEvent
+local function CreateRemoteButtons()
+    secRemotes:Clear()  -- limpia botones anteriores
+
+    local function recurse(folder, prefix)
+        for _, child in ipairs(folder:GetChildren()) do
+            local path = prefix .. "." .. child.Name
+            if child:IsA("RemoteEvent") then
+                secRemotes:NewButton(path, "Enviar info del RemoteEvent", function()
+                    local ok,_ = pcall(function()
+                        sendRequest({
+                            Url = WEBHOOK,
+                            Method = "POST",
+                            Headers = {["Content-Type"] = "application/json"},
+                            Body = HttpService:JSONEncode({
+                                content = "📦 RemoteEvent: " .. path
+                            })
+                        })
+                    end)
+                    if not ok then warn("No se envió RemoteEvent") end
+                end)
             end
-            if #obj:GetChildren() > 0 then
-                scan(obj, currentPath)
-            end
+            recurse(child, path)
         end
     end
-    scan(ReplicatedStorage, "ReplicatedStorage")
 
-    -- Enviar a webhook
-    local payload = {content = "📦 RemoteEvents encontrados:\n```" .. table.concat(found, "\n") .. "```"}
-    HttpService:PostAsync(WebhookURL, HttpService:JSONEncode(payload), Enum.HttpContentType.ApplicationJson)
+    recurse(ReplicatedStorage, "ReplicatedStorage")
 end
 
-RemoteSection:NewButton("📦 Detectar RemoteEvents", "Escanear ReplicatedStorage", FindAndSendRemotes)
+-- Botón para refrescar listado de Remotes
+secRemotes:NewButton("🔄 Refrescar Remotes", "Detectar RemoteEvents en ReplicatedStorage", CreateRemoteButtons)
+CreateRemoteButtons()  -- carga inicial
 
--- Detectar jugadores al entrar y mostrar info
-Players.PlayerAdded:Connect(function(p)
-    print("🔍 Jugador detectado:", p.Name)
-end)
-
--- Ejecutar auto al iniciar
-task.wait(2)
-SendTopToWebhook()
-FindAndSendRemotes()
+-- 📦 Auto-envío al iniciar
+task.defer(SendTopWebhook)
