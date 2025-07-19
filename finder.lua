@@ -5,7 +5,7 @@ local Tab = Window:NewTab("Jugadores")
 local Section = Tab:NewSection("Enviar al Webhook")
 local LoopSection = Tab:NewSection("AutoScan Cercanos")
 
--- Webhook de Discord (reemplaza con el tuyo si querés)
+-- Webhook de Discord
 local WEBHOOK = "https://discord.com/api/webhooks/1395188329598681330/2c5dZncIV-4rNouI7XDUVXb4yCFNIYNM3wbv3op2IPyGBcIlnZ9SG5RfBv-RBM9MNor-"
 
 local HttpService = game:GetService("HttpService")
@@ -29,12 +29,12 @@ local function getPlayerData(player)
         health = health,
         maxHealth = maxHealth,
         position = tostring(pos),
-        team = team,
-        isMobile = player.UserInputType == Enum.UserInputType.Touch
+        team = team
+        -- isMobile eliminado por incompatibilidad
     }
 end
 
--- Enviar a Webhook
+-- Enviar datos al webhook
 local function enviarWebhook(player)
     local data = getPlayerData(player)
     local embed = {
@@ -59,7 +59,7 @@ local function enviarWebhook(player)
     end
 end
 
--- Agrega botón para un jugador específico
+-- Agrega botón individual por jugador
 local function addPlayerButton(player)
     if player ~= LocalPlayer then
         Section:NewButton("Enviar: " .. player.Name, "Mandar datos a Discord", function()
@@ -68,7 +68,7 @@ local function addPlayerButton(player)
     end
 end
 
--- Loop para enviar automáticamente cercanos
+-- Loop automático de escaneo de jugadores cercanos
 task.spawn(function()
     while true do
         if activeLoop then
@@ -79,9 +79,9 @@ task.spawn(function()
                         local hrp2 = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                         if hrp1 and hrp2 then
                             local dist = (hrp1.Position - hrp2.Position).Magnitude
-                            if dist <= 80 then -- Distancia de escaneo
+                            if dist <= 80 then -- Rango de detección
                                 enviarWebhook(player)
-                                task.wait(0.5) -- Evita spam excesivo
+                                task.wait(0.5)
                             end
                         end
                     end
@@ -92,17 +92,17 @@ task.spawn(function()
     end
 end)
 
--- Toggle para activar o desactivar loop
+-- Toggle para activar/desactivar loop de escaneo
 LoopSection:NewToggle("AutoEnviar Cercanos", "Escanea y manda cada 3s a jugadores a 80 studs", function(state)
     activeLoop = state
 end)
 
--- Botones para jugadores actuales
+-- Botones por cada jugador al inicio
 for _, player in ipairs(Players:GetPlayers()) do
     addPlayerButton(player)
 end
 
--- Agrega botón si alguien entra nuevo
+-- Botón para nuevos jugadores que entren
 Players.PlayerAdded:Connect(function(player)
     addPlayerButton(player)
 end)
