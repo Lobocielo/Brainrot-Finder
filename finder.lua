@@ -1,7 +1,6 @@
--- Carga Kavo UI
+-- Carga Kavo UI con tema azul (Ocean)
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
-
-local Window = Library.CreateLib("ZENIHT FINDER", "BloodTheme")
+local Window = Library.CreateLib("ZENIHT FINDER", "Ocean") -- Ocean es tema azul
 local Tab = Window:NewTab("Main")
 local Section = Tab:NewSection("Funciones")
 
@@ -13,7 +12,6 @@ local WEBHOOK = "https://discord.com/api/webhooks/1395923548044005406/XtdiHIMtc5
 
 local sendRequest = syn and syn.request or http_request or request
 
--- Obtener top jugadores con más cash
 local function GetTopPlayers()
     local list = {}
     for _, p in ipairs(Players:GetPlayers()) do
@@ -27,7 +25,6 @@ local function GetTopPlayers()
     return list
 end
 
--- Enviar webhook con top 5 jugadores
 local function SendTopWebhook()
     local top = GetTopPlayers()
     if #top == 0 then
@@ -35,15 +32,30 @@ local function SendTopWebhook()
         return
     end
 
-    local lines = {
-        "📊 ZENIHT FINDER | Jugadores más ricos detectados",
-        "💰 Top 5 Jugadores con más Cash"
-    }
+    -- Preparar campos embed para Discord
+    local fields = {}
     for i = 1, math.min(5, #top) do
         local p = top[i]
-        table.insert(lines, string.format("%d. %s (%s) | 💰 %d | 🆔 %d", i, p.Display, p.Name, p.Cash, p.ID))
+        table.insert(fields, {
+            name = string.format("%d. %s (%s)", i, p.Display, p.Name),
+            value = string.format("💰 Cash: %d\n🆔 ID: %d", p.Cash, p.ID),
+            inline = false
+        })
     end
-    table.insert(lines, string.format("JobId: %s | PlaceId: %d", tostring(game.JobId), game.PlaceId))
+
+    local embed = {
+        title = "📊 ZENIHT FINDER | Jugadores más ricos detectados",
+        color = 0x1E90FF, -- Azul DodgerBlue (en decimal es 2003199)
+        fields = fields,
+        footer = {
+            text = string.format("JobId: %s | PlaceId: %d", tostring(game.JobId), game.PlaceId)
+        },
+        timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ") -- timestamp en UTC ISO8601
+    }
+
+    local data = {
+        embeds = {embed}
+    }
 
     local success, err = pcall(function()
         sendRequest({
@@ -53,20 +65,17 @@ local function SendTopWebhook()
                 ["Content-Type"] = "application/json",
                 ["User-Agent"] = "ZENIHT-BOT-" .. tostring(math.random(1000, 9999))
             },
-            Body = HttpService:JSONEncode({
-                content = table.concat(lines, "\n")
-            })
+            Body = HttpService:JSONEncode(data)
         })
     end)
 
     if success then
-        print("[ZENIHT] Webhook enviado correctamente.")
+        print("[ZENIHT] Webhook con embed enviado correctamente.")
     else
         warn("[ZENIHT] Error al enviar webhook:", err)
     end
 end
 
--- Función para hacer server hop a otro servidor público aleatorio
 local function TeleportToAnotherServer()
     local placeId = game.PlaceId
     local servers = {}
@@ -117,7 +126,6 @@ local function TeleportToAnotherServer()
     TeleportService:TeleportToPlaceInstance(placeId, randomServer, Players.LocalPlayer)
 end
 
--- UI Buttons
 Section:NewButton("Enviar Top 5 al Webhook", "Envía los jugadores más ricos detectados al webhook", function()
     SendTopWebhook()
 end)
