@@ -184,5 +184,3 @@ for _, p in ipairs(Players:GetPlayers()) do
 end
 
 Sec:NewDropdown("🚀 Teleport a Jugador", "Selecciona jugador para ir", playerNames, function(selected)
-    TeleportToPlayer(selected)
-end)
