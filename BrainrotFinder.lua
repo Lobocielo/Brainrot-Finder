@@ -1,6 +1,6 @@
 -- Carga la UI de Kavo con tema azul
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
-local Window = Library.CreateLib("💠 Brainrot Finder PRO", "Ocean")
+local Window = Library.CreateLib("💠 Brainrot Finder", "Ocean")
 
 -- Servicios
 local Players = game:GetService("Players")
@@ -126,56 +126,44 @@ function TeleportToPlayer(playerName)
     end
 end
 
--- Server Hop con análisis previo
+-- Server Hop
 function ServerHop()
     local servers = {}
     local url = string.format("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Desc&limit=100", game.PlaceId)
     local response = HttpService:JSONDecode(game:HttpGet(url))
-    local bestServer = nil
-    local bestAvgMoney = 0
-
     for _, server in pairs(response.data) do
         if server.playing < server.maxPlayers then
-            local moneyTotal = 0
-            for _, p in pairs(server.playerTokens or {}) do
-                moneyTotal += p.money or 0
-            end
-            local avgMoney = moneyTotal / #server.playerTokens
-            if avgMoney > bestAvgMoney then
-                bestAvgMoney = avgMoney
-                bestServer = server
-            end
+            table.insert(servers, server.id)
         end
     end
-
-    if bestServer then
-        print("Teleportando al servidor con mejor promedio de dinero:", bestAvgMoney)
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, bestServer.id, LocalPlayer)
+    if #servers > 0 then
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, servers[math.random(1, #servers)], LocalPlayer)
     else
-        warn("No se encontraron servidores óptimos para cambiar.")
+        warn("No se encontraron servidores disponibles para cambiar.")
     end
 end
 
 -- UI
-local MainTab = Window:NewTab("🚀 Funciones Avanzadas")
-local Sec = MainTab:NewSection("🔧 Opciones Generales")
+local MainTab = Window:NewTab("Funciones")
+local Sec = MainTab:NewSection("⚙️ Opciones Generales")
 
-Sec:NewButton("👁️ Activar ESP Jugadores", "Ver jugadores con protección", function()
+Sec:NewButton("🔵 Activar ESP de Jugadores", "Activa o desactiva ESP solo para jugadores", function()
     ToggleESP()
 end)
 
-Sec:NewButton("🛡️ Activar Anti-TP Forzado", "Regresa a tu posición si te teletransportan", function()
+Sec:NewButton("🛡️ Activar Anti-TP Forzado", "Vuelve a tu posición si te teletransportan", function()
     originalPosition = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.CFrame
 end)
 
-Sec:NewKeybind("✈️ Activar Fly (F)", "Vuela con protección", Enum.KeyCode.F, function()
+Sec:NewKeybind("✈️ Fly Protegido (F)", "Activa/desactiva vuelo seguro con tecla F", Enum.KeyCode.F, function()
     ToggleFly()
 end)
 
-Sec:NewButton("🔁 Server Hop Inteligente", "Cambia a servidor con mejor promedio de dinero", function()
+Sec:NewButton("🔁 Server Hop", "Cambia a otro servidor aleatorio", function()
     ServerHop()
 end)
 
+-- Dropdown para teleport a jugadores
 local playerNames = {}
 for _, p in ipairs(Players:GetPlayers()) do
     if p ~= LocalPlayer then
@@ -183,4 +171,5 @@ for _, p in ipairs(Players:GetPlayers()) do
     end
 end
 
-Sec:NewDropdown("🚀 Teleport a Jugador", "Selecciona jugador para ir", playerNames, function(selected)
+Sec:NewDropdown("🚀 Teleport a Jugador", "Selecciona jugador para teleport", playerNames, function(selected)
+    TeleportToPlayer(selected)
